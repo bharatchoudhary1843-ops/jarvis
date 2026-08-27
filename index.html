@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. - Personal Assistant</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at center, #0a1628 0%, #000000 100%);
+    color: #00d4ff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .container {
+    width: 100%;
+    max-width: 480px;
+    padding: 24px;
+    text-align: center;
+  }
+  .core-wrap {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 212, 255, 0.3);
+  }
+  .ring1 { width: 220px; height: 220px; animation: spin 8s linear infinite; border-top-color: #00d4ff; }
+  .ring2 { width: 170px; height: 170px; animation: spin 6s linear infinite reverse; border-right-color: #00d4ff; }
+  .ring3 { width: 120px; height: 120px; animation: spin 4s linear infinite; border-bottom-color: #00d4ff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .core {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00d4ff 0%, #0077aa 70%, transparent 100%);
+    box-shadow: 0 0 40px #00d4ff, 0 0 80px rgba(0, 212, 255, 0.4);
+    transition: all 0.3s ease;
+  }
+  .core.listening {
+    animation: pulse 1s ease-in-out infinite;
+    background: radial-gradient(circle, #ff3366 0%, #aa0033 70%, transparent 100%);
+    box-shadow: 0 0 40px #ff3366, 0 0 80px rgba(255, 51, 102, 0.4);
+  }
+  .core.speaking {
+    animation: pulse 0.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+  h1 {
+    font-size: 22px;
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 10px #00d4ff;
+  }
+  .status {
+    font-size: 13px;
+    color: #66c6e0;
+    min-height: 20px;
+    margin-bottom: 20px;
+  }
+  .transcript-box {
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 120px;
+    max-height: 260px;
+    overflow-y: auto;
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .msg { margin-bottom: 10px; }
+  .msg.user { color: #ffffff; }
+  .msg.user::before { content: "🧑 "; }
+  .msg.jarvis { color: #00d4ff; }
+  .msg.jarvis::before { content: "🤖 "; }
+  .controls { display: flex; gap: 12px; justify-content: center; }
+  button {
+    background: transparent;
+    border: 2px solid #00d4ff;
+    color: #00d4ff;
+    padding: 14px 28px;
+    border-radius: 30px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+  button:hover { background: rgba(0, 212, 255, 0.15); }
+  button:active { transform: scale(0.96); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mic-btn.active {
+    background: #ff3366;
+    border-color: #ff3366;
+    color: white;
+  }
+  .hint { font-size: 11px; color: #557; margin-top: 14px; }
+  .key-setup {
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    text-align: left;
+  }
+  .key-setup input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    background: #000814;
+    border: 1px solid #00d4ff;
+    color: #00d4ff;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .key-setup button {
+    margin-top: 10px;
+    width: 100%;
+    padding: 10px;
+  }
+  .key-setup a { color: #00d4ff; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>J.A.R.V.I.S.</h1>
+  <div class="core-wrap">
+    <div class="ring ring1"></div>
+    <div class="ring ring2"></div>
+    <div class="ring ring3"></div>
+    <div class="core" id="core"></div>
+  </div>
+  <div class="status" id="status">Mic dabaye aur bolna shuru karein</div>
+
+  <div class="key-setup" id="keySetup">
+    <div>🔑 Pehli baar? Apni Anthropic API key daalein (ek baar hi):</div>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <button id="saveKeyBtn">Save Key</button>
+    <div style="margin-top:8px; font-size:11px; opacity:0.7;">
+      Key nahi hai? <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> se bana lein.
+    </div>
+  </div>
+
+  <div class="transcript-box" id="transcript"></div>
+  <div class="controls">
+    <button class="mic-btn" id="micBtn">🎤 Bolein</button>
+    <button id="stopBtn">⏹ Chup karo</button>
+  </div>
+  <div class="hint">Chrome/Edge browser me best kaam karta hai</div>
+</div>
+
+<script>
+const core = document.getElementById('core');
+const statusEl = document.getElementById('status');
+const transcriptEl = document.getElementById('transcript');
+const micBtn = document.getElementById('micBtn');
+const stopBtn = document.getElementById('stopBtn');
+const keySetup = document.getElementById('keySetup');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+
+let userApiKey = localStorage.getItem('jarvis_api_key') || '';
+if (userApiKey) keySetup.classList.add('hidden');
+
+saveKeyBtn.addEventListener('click', () => {
+  const val = apiKeyInput.value.trim();
+  if (val) {
+    localStorage.setItem('jarvis_api_key', val);
+    userApiKey = val;
+    keySetup.classList.add('hidden');
+    statusEl.textContent = "Key save ho gayi! Ab mic dabaye.";
+  }
+});
+
+// Register service worker for PWA install support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+let recognition;
+let isListening = false;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+  statusEl.textContent = "Ye browser voice input support nahi karta. Chrome try karein.";
+  micBtn.disabled = true;
+} else {
+  recognition = new SpeechRecognition();
+  recognition.lang = 'hi-IN';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    core.classList.add('listening');
+    micBtn.classList.add('active');
+    statusEl.textContent = "Sun raha hoon...";
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    core.classList.remove('listening');
+    micBtn.classList.remove('active');
+  };
+
+  recognition.onerror = (e) => {
+    statusEl.textContent = "Error: " + e.error;
+    isListening = false;
+    core.classList.remove('listening');
+    micBtn.classList.remove('active');
+  };
+
+  recognition.onresult = async (event) => {
+    const text = event.results[0][0].transcript;
+    addMessage('user', text);
+    if (!userApiKey) {
+      const msg = "Pehle upar API key daalein.";
+      addMessage('jarvis', msg);
+      speak(msg);
+      return;
+    }
+    statusEl.textContent = "Soch raha hoon...";
+    const reply = await askClaude(text);
+    addMessage('jarvis', reply);
+    speak(reply);
+  };
+}
+
+micBtn.addEventListener('click', () => {
+  if (!isListening) {
+    recognition.start();
+  }
+});
+
+stopBtn.addEventListener('click', () => {
+  window.speechSynthesis.cancel();
+  if (isListening) recognition.stop();
+  core.classList.remove('speaking');
+  statusEl.textContent = "Ruk gaya";
+});
+
+function addMessage(who, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  div.textContent = text;
+  transcriptEl.appendChild(div);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+
+function speak(text) {
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'hi-IN';
+  utter.rate = 1;
+  utter.onstart = () => {
+    core.classList.add('speaking');
+    statusEl.textContent = "Bol raha hoon...";
+  };
+  utter.onend = () => {
+    core.classList.remove('speaking');
+    statusEl.textContent = "Mic dabaye aur bolna shuru karein";
+  };
+  window.speechSynthesis.speak(utter);
+}
+
+let conversationHistory = [];
+
+async function askClaude(userText) {
+  conversationHistory.push({ role: "user", content: userText });
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": userApiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: "Tum JARVIS ho, ek friendly personal voice assistant. Hinglish ya Hindi me chhote, natural, baat-cheet jaise jawab do (2-4 sentences). Bahut lamba jawab mat do kyunki ye bola jayega.",
+        messages: conversationHistory
+      })
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || "API error");
+    }
+    const data = await response.json();
+    const reply = data.content.map(c => c.text || "").join(" ").trim();
+    conversationHistory.push({ role: "assistant", content: reply });
+    return reply || "Maaf kijiye, jawab nahi mil paya.";
+  } catch (err) {
+    console.error(err);
+    return "Kuch gadbad ho gayi: " + err.message;
+  }
+}
+</script>
+</body>
+</html>
